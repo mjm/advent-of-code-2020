@@ -12,11 +12,29 @@ fn main() {
 
     let nums = to_numbers(&contents);
 
+    part1(&nums);
+    part2(&nums);
+}
+
+fn part1(nums: &Vec<i32>) {
     for (i, num) in nums.iter().enumerate() {
-        for (j, num2) in nums.iter().enumerate() {
-            if i != j && num + num2 == 2020 {
+        for num2 in &nums[i + 1..] {
+            if num + num2 == 2020 {
                 println!("The product of {} and {} is {}", num, num2, num * num2);
-                return
+                return;
+            }
+        }
+    }
+}
+
+fn part2(nums: &Vec<i32>) {
+    for (i, num) in nums.iter().enumerate() {
+        for (j, num2) in (&nums[i + 1..]).iter().enumerate() {
+            for num3 in &nums[j + 1..] {
+                if num + num2 + num3 == 2020 {
+                    println!("The product of {}, {}, and {} is {}", num, num2, num3, num * num2 * num3);
+                    return;
+                }
             }
         }
     }
