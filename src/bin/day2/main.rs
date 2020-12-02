@@ -14,18 +14,32 @@ fn main() {
         .collect::<Option<Vec<PolicyPasswordPair>>>()
         .expect("Some line is not parsing correctly");
 
-    part1(&passwords)
+    part1(&passwords);
+    part2(&passwords);
 }
 
 fn part1(passwords: &Vec<PolicyPasswordPair>) {
     let valid_password_count = passwords.iter()
         .filter(|PolicyPasswordPair(policy, password)| {
             let char_count = password.chars().filter(|c| *c == policy.letter).count();
-            char_count <= policy.max_times as usize && char_count >= policy.min_times as usize
+            char_count <= policy.max_times && char_count >= policy.min_times
         })
         .count();
 
     println!("There are {} passwords that match their policy.", valid_password_count);
+}
+
+fn part2(passwords: &Vec<PolicyPasswordPair>) {
+    let valid_password_count = passwords.iter()
+        .filter(|PolicyPasswordPair(policy, password)| {
+            let first_char = password.chars().nth(policy.min_times - 1).unwrap();
+            let second_char = password.chars().nth(policy.max_times - 1).unwrap();
+            (first_char == policy.letter && second_char != policy.letter) ||
+                (first_char != policy.letter && second_char == policy.letter)
+        })
+        .count();
+
+    println!("There are {} passwords that match their policy according to the new interpretation.", valid_password_count);
 }
 
 #[derive(Debug)]
@@ -47,8 +61,8 @@ impl PolicyPasswordPair<'_> {
 #[derive(Debug)]
 struct PasswordPolicy {
     letter: char,
-    min_times: u32,
-    max_times: u32,
+    min_times: usize,
+    max_times: usize,
 }
 
 impl PasswordPolicy {
@@ -58,7 +72,7 @@ impl PasswordPolicy {
             [times, letter_str] => {
                 let letter = letter_str.chars().next()?;
 
-                let v2 = times.split('-').map(|s| s.parse::<u32>().unwrap()).collect::<Vec<u32>>();
+                let v2 = times.split('-').map(|s| s.parse::<usize>().unwrap()).collect::<Vec<usize>>();
                 match &v2[..] {
                     [min_times, max_times] => Some(PasswordPolicy {
                         letter,
