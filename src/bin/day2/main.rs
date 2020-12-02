@@ -71,8 +71,7 @@ impl PasswordPolicy {
         match &v[..] {
             [times, letter_str] => {
                 let letter = letter_str.chars().next()?;
-
-                let v2 = times.split('-').map(|s| s.parse::<usize>().unwrap()).collect::<Vec<usize>>();
+                let v2 = times.split('-').map(|s| s.parse::<usize>().ok()).collect::<Option<Vec<usize>>>()?;
                 match &v2[..] {
                     [min_times, max_times] => Some(PasswordPolicy {
                         letter,
