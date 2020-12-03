@@ -13,31 +13,22 @@ fn main() {
     let map = contents.parse::<Map>()
         .expect("The map could not be parsed");
 
-    part1(&map)
+    part1(&map);
+    part2(&map);
 }
 
 fn part1(map: &Map) {
-    let mut num_trees = 0;
-
-    let mut row: usize = 1;
-    let mut col: usize = 3;
-
-    loop {
-        match map.get(row, col) {
-            Some(MapItem::Tree) => {
-                num_trees += 1;
-            },
-            Some(MapItem::Empty) => {},
-            None => {
-                break;
-            }
-        };
-
-        row += 1;
-        col += 3;
-    }
-
+    let num_trees = map.trees_along_slope(1, 3);
     println!("Encountered {} trees before reaching the bottom.", num_trees);
+}
+
+fn part2(map: &Map) {
+    let result = map.trees_along_slope(1, 1)
+        * map.trees_along_slope(1, 3)
+        * map.trees_along_slope(1, 5)
+        * map.trees_along_slope(1, 7)
+        * map.trees_along_slope(2, 1);
+    println!("Product of all the numbers of trees: {}", result);
 }
 
 enum MapItem {
@@ -93,5 +84,29 @@ impl Map {
         let real_col = col % self.width;
         let idx = (row * self.width) + real_col;
         Some(&self.contents[idx])
+    }
+
+    fn trees_along_slope(&self, down: usize, right: usize) -> usize {
+        let mut num_trees = 0;
+
+        let mut row: usize = down;
+        let mut col: usize = right;
+
+        loop {
+            match self.get(row, col) {
+                Some(MapItem::Tree) => {
+                    num_trees += 1;
+                },
+                Some(MapItem::Empty) => {},
+                None => {
+                    break;
+                }
+            };
+
+            row += down;
+            col += right;
+        }
+
+        num_trees
     }
 }
