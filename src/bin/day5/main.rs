@@ -18,6 +18,7 @@ fn main() {
         .expect("Could not parse seats");
 
     part1(&seats);
+    part2(&seats);
 }
 
 fn part1(seats: &Vec<Seat>) {
@@ -29,4 +30,21 @@ fn part1(seats: &Vec<Seat>) {
     println!("The highest seat ID is {}", highest_seat_id);
 }
 
+fn part2(seats: &Vec<Seat>) {
+    let mut seat_ids = seats.iter()
+        .map(Seat::id)
+        .collect::<Vec<i32>>();
+    seat_ids.sort();
+
+    for i in 0..(seat_ids.len() - 1) {
+        let this_seat = seat_ids[i];
+        let next_seat =  seat_ids[i + 1];
+        if this_seat + 1 != next_seat {
+            println!("Your seat ID is {}", this_seat + 1);
+            return;
+        }
+    }
+
+    panic!("Didn't find a gap in the list of seats!")
+}
 
