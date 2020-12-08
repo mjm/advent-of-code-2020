@@ -44,6 +44,27 @@ impl Graph {
 
         Some(reachable_nodes.len() as i32)
     }
+
+    pub fn inverted(&self) -> Graph {
+        let mut new_graph = Graph::new();
+
+        for (from, tos) in self.edges.iter() {
+            for to in tos {
+                new_graph.add_edge(&to.value, from, to.quantity);
+            }
+        }
+
+        new_graph
+    }
+
+    pub fn count_nodes(&self, start: &str) -> i32 {
+        match self.edges.get(start) {
+            Some(edges) => {
+                edges.iter().map(|e| e.quantity * (1 + self.count_nodes(&e.value))).sum()
+            },
+            None => 0,
+        }
+    }
 }
 
 #[derive(Debug, Eq, PartialEq, Hash)]

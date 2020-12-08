@@ -23,12 +23,20 @@ fn main() {
         .unwrap();
 
     part1(&graph);
+    part2(&graph);
 }
 
 fn part1(graph: &Graph) {
     let result = graph.nodes_reachable_from("shiny gold")
         .expect("Could not find any nodes reachable from shiny gold");
     println!("There are {} kinds of bags that can contain a shiny gold bag.", result);
+}
+
+fn part2(graph: &Graph) {
+    let inverted_graph = graph.inverted();
+
+    let result = inverted_graph.count_nodes("shiny gold");
+    println!("A shiny gold bag contains {} other bags.", result);
 }
 
 fn parsed_digit1(s: &str) -> IResult<&str, i32> {
