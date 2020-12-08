@@ -2,7 +2,7 @@ use nom::{IResult, Finish};
 use nom::sequence::{preceded};
 use nom::branch::alt;
 use nom::character::complete::{char, digit1, newline};
-use nom::combinator::{map_res, map, value, all_consuming};
+use nom::combinator::{map_res, map, all_consuming};
 use nom::bytes::complete::tag;
 use nom::multi::separated_list0;
 use nom::lib::std::collections::HashSet;
@@ -12,6 +12,11 @@ pub struct Console<'a> {
     pc: usize,
     acc: i32,
     already_executed: HashSet<usize>,
+}
+
+pub enum RunResult {
+    Terminated,
+    InfiniteLoop,
 }
 
 impl<'a> Console<'a> {
@@ -28,7 +33,7 @@ impl<'a> Console<'a> {
         self.already_executed.insert(self.pc);
 
         match &self.insts[self.pc] {
-            Instruction::Nop => self.pc += 1,
+            Instruction::Nop(_) => self.pc += 1,
             Instruction::Acc(n) => {
                 self.acc += n;
                 self.pc += 1;
@@ -47,16 +52,24 @@ impl<'a> Console<'a> {
         self.acc
     }
 
-    pub fn run_until_looped(&mut self) {
-        while !self.already_executed.contains(&self.pc) {
+    pub fn run(&mut self) -> RunResult {
+        loop {
             self.step();
+
+            if self.already_executed.contains(&self.pc) {
+                return RunResult::InfiniteLoop;
+            }
+
+            if self.pc == self.insts.len() {
+                return RunResult::Terminated;
+            }
         }
     }
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum Instruction {
-    Nop,
+    Nop(i32),
     Acc(i32),
     Jmp(i32),
 }
@@ -82,7 +95,7 @@ fn signed_number(s: &str) -> IResult<&str, i32> {
 
 fn instruction_parser(s: &str) -> IResult<&str, Instruction> {
     alt((
-        value(Instruction::Nop, preceded(tag("nop "), signed_number)),
+        map(preceded(tag("nop "), signed_number), Instruction::Nop),
         map(preceded(tag("acc "), signed_number), Instruction::Acc),
         map(preceded(tag("jmp "), signed_number), Instruction::Jmp),
     ))(s)
