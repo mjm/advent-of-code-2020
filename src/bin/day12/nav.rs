@@ -81,26 +81,27 @@ impl Navigator {
         match inst {
             Instruction(Action::Direction(dir), n) => {
                 self.execute_move(*dir, *n);
-            },
+            }
             Instruction(Action::Left, degrees) => {
                 self.turn_left(*degrees);
-            },
+            }
             Instruction(Action::Right, degrees) => {
                 self.turn_right(*degrees);
-            },
+            }
             Instruction(Action::Forward, n) => {
                 self.execute_move(self.dir, *n);
-            },
+            }
         }
     }
 
     fn execute_move(&mut self, dir: Direction, n: i32) {
-        match dir {
-            Direction::North => { self.pos = (self.pos.0, self.pos.1 + n); },
-            Direction::East => { self.pos = (self.pos.0 + n, self.pos.1); },
-            Direction::South => { self.pos = (self.pos.0, self.pos.1 - n); },
-            Direction::West => { self.pos = (self.pos.0 - n, self.pos.1); },
-        }
+        let (x, y) = self.pos;
+        self.pos = match dir {
+            Direction::North => (x, y + n),
+            Direction::East => (x + n, y),
+            Direction::South => (x, y - n),
+            Direction::West => (x - n, y),
+        };
     }
 
     fn turn_left(&mut self, degrees: i32) {
@@ -108,12 +109,12 @@ impl Navigator {
             return;
         }
 
-        match self.dir {
-            Direction::North => { self.dir = Direction::West; },
-            Direction::East => { self.dir = Direction::North; },
-            Direction::South => { self.dir = Direction::East; },
-            Direction::West => { self.dir = Direction::South; },
-        }
+        self.dir = match self.dir {
+            Direction::North => Direction::West,
+            Direction::East => Direction::North,
+            Direction::South => Direction::East,
+            Direction::West => Direction::South,
+        };
 
         self.turn_left(degrees - 90);
     }
@@ -123,12 +124,12 @@ impl Navigator {
             return;
         }
 
-        match self.dir {
-            Direction::North => { self.dir = Direction::East; },
-            Direction::East => { self.dir = Direction::South; },
-            Direction::South => { self.dir = Direction::West; },
-            Direction::West => { self.dir = Direction::North; },
-        }
+        self.dir = match self.dir {
+            Direction::North => Direction::East,
+            Direction::East => Direction::South,
+            Direction::South => Direction::West,
+            Direction::West => Direction::North,
+        };
 
         self.turn_right(degrees - 90);
     }
@@ -161,16 +162,16 @@ impl WaypointNavigator {
         match inst {
             Instruction(Action::Direction(dir), n) => {
                 self.move_waypoint(*dir, *n);
-            },
+            }
             Instruction(Action::Left, degrees) => {
                 self.turn_left(*degrees);
-            },
+            }
             Instruction(Action::Right, degrees) => {
                 self.turn_right(*degrees);
-            },
+            }
             Instruction(Action::Forward, n) => {
                 self.move_to_waypoint(*n);
-            },
+            }
         }
     }
 
