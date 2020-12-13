@@ -50,6 +50,40 @@ impl Simulator {
         }
     }
 
+    pub fn step2(&mut self) -> usize {
+        let mut changes: Vec<(usize, char)> = Vec::new();
+
+        for (i, c) in self.map.iter().enumerate() {
+            match *c {
+                'L' => {
+                    if self.count_occupied_visible_seats(i) == 0 {
+                        changes.push((i, '#'));
+                    }
+                },
+                '#' => {
+                    if self.count_occupied_visible_seats(i) >= 5 {
+                        changes.push((i, 'L'));
+                    }
+                },
+                _ => {},
+            }
+        }
+
+        for (i, c) in &changes {
+            self.map[*i] = *c;
+        }
+
+        changes.len()
+    }
+
+    pub fn run_until_stable2(&mut self) {
+        loop {
+            if self.step2() == 0 {
+                return
+            }
+        }
+    }
+
     pub fn num_occupied(&self) -> usize {
         self.map.iter().filter(|c| **c == '#').count()
     }
@@ -59,43 +93,75 @@ impl Simulator {
     }
 
     fn neighbor_indices(&self, i: usize) -> Vec<usize> {
+        vec![
+            (-1, -1),
+            (0, -1),
+            (1, -1),
+            (-1, 0),
+            (1, 0),
+            (-1, 1),
+            (0, 1),
+            (1, 1),
+        ].iter().filter_map(|(dx, dy)| self.adjacent_index(i, *dx, *dy)).collect()
+    }
+
+    fn count_occupied_visible_seats(&self, i: usize) -> usize {
+        self.visible_seat_indices(i).iter().filter(|j| self.map[**j] == '#').count()
+    }
+
+    fn visible_seat_indices(&self, i: usize) -> Vec<usize> {
+        vec![
+            (-1, -1),
+            (0, -1),
+            (1, -1),
+            (-1, 0),
+            (1, 0),
+            (-1, 1),
+            (0, 1),
+            (1, 1),
+        ].iter().filter_map(|(dx, dy)| self.visible_seat_index(i, *dx, *dy)).collect()
+    }
+
+    fn adjacent_index(&self, i: usize, dx: i32, dy: i32) -> Option<usize> {
         let x = i % self.width;
         let y = i / self.width;
 
-        let mut indices: Vec<usize> = Vec::new();
-
-        let can_go_left = x > 0;
-        let can_go_right = x < self.width - 1;
-        let can_go_up = y > 0;
-        let can_go_down = y < self.height - 1;
-
-        if can_go_up {
-            if can_go_left {
-                indices.push(i - (self.width + 1));
+        let mut next_index = i;
+        if dx < 0 {
+            if (x as i32) + dx < 0 {
+                return None;
             }
-            indices.push(i - self.width);
-            if can_go_right {
-                indices.push(i - (self.width - 1));
+            next_index -= dx.abs() as usize;
+        } else if dx > 0 {
+            if x + (dx as usize) >= self.width {
+                return None;
             }
+            next_index += dx as usize;
         }
 
-        if can_go_left {
-            indices.push(i - 1);
-        }
-        if can_go_right {
-            indices.push(i + 1);
+        if dy < 0 {
+            if (y as i32) + dy < 0 {
+                return None;
+            }
+            next_index -= (dy.abs() as usize) * self.width;
+        } else {
+            if y + (dy as usize) >= self.height {
+                return None;
+            }
+            next_index += (dy as usize) * self.width;
         }
 
-        if can_go_down {
-            if can_go_left {
-                indices.push(i + self.width - 1);
-            }
-            indices.push(i + self.width);
-            if can_go_right {
-                indices.push(i + self.width + 1);
-            }
-        }
+        Some(next_index)
+    }
 
-        indices
+    fn visible_seat_index(&self, i: usize, dx: i32, dy: i32) -> Option<usize> {
+        match self.adjacent_index(i, dx, dy) {
+            Some(j) => match self.map[j] {
+                '#' | 'L' => Some(j),
+                '.' => self.visible_seat_index(j, dx, dy),
+                c => panic!("Unexpected character {}", c),
+            },
+            None => None,
+        }
     }
 }

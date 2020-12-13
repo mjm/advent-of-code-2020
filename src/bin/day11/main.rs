@@ -26,5 +26,8 @@ fn part1(sim: &Simulator) {
 }
 
 fn part2(sim: &Simulator) {
+    let mut sim = sim.clone();
+    sim.run_until_stable2();
 
+    println!("The number of occupied seats when stable is {}", sim.num_occupied())
 }
