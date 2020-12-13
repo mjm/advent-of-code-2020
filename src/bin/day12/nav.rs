@@ -133,3 +133,82 @@ impl Navigator {
         self.turn_right(degrees - 90);
     }
 }
+
+pub struct WaypointNavigator {
+    pos: (i32, i32),
+    offset: (i32, i32),
+}
+
+impl WaypointNavigator {
+    pub fn new() -> Self {
+        WaypointNavigator {
+            pos: (0, 0),
+            offset: (10, 1),
+        }
+    }
+
+    pub fn distance_from_origin(&self) -> i32 {
+        self.pos.0.abs() + self.pos.1.abs()
+    }
+
+    pub fn execute_all(&mut self, insts: &Vec<Instruction>) {
+        for inst in insts {
+            self.execute(inst);
+        }
+    }
+
+    pub fn execute(&mut self, inst: &Instruction) {
+        match inst {
+            Instruction(Action::Direction(dir), n) => {
+                self.move_waypoint(*dir, *n);
+            },
+            Instruction(Action::Left, degrees) => {
+                self.turn_left(*degrees);
+            },
+            Instruction(Action::Right, degrees) => {
+                self.turn_right(*degrees);
+            },
+            Instruction(Action::Forward, n) => {
+                self.move_to_waypoint(*n);
+            },
+        }
+    }
+
+    fn move_waypoint(&mut self, dir: Direction, n: i32) {
+        let (x, y) = self.offset;
+        self.offset = match dir {
+            Direction::North => (x, y + n),
+            Direction::East => (x + n, y),
+            Direction::South => (x, y - n),
+            Direction::West => (x - n, y),
+        }
+    }
+
+    fn turn_left(&mut self, degrees: i32) {
+        if degrees <= 0 {
+            return;
+        }
+
+        let (x, y) = self.offset;
+        self.offset = (-y, x);
+
+        self.turn_left(degrees - 90);
+    }
+
+    fn turn_right(&mut self, degrees: i32) {
+        if degrees <= 0 {
+            return;
+        }
+
+        let (x, y) = self.offset;
+        self.offset = (y, -x);
+
+        self.turn_right(degrees - 90);
+    }
+
+    fn move_to_waypoint(&mut self, times: i32) {
+        let (x, y) = self.pos;
+        let (dx, dy) = self.offset;
+        self.pos = (x + (times * dx), y + (times * dy));
+    }
+}
