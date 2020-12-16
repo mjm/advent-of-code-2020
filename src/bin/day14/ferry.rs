@@ -66,6 +66,26 @@ impl Computer {
         }
     }
 
+    pub fn step_v2(&mut self, inst: &Instruction) {
+        match inst {
+            Instruction::Mask(mask) => {
+                self.mask = mask.clone();
+            }
+            Instruction::Mem(addr, value) => {
+                let addrs = self.mask_v2(addr);
+                for addr in addrs {
+                    self.mem.insert(addr, *value);
+                }
+            }
+        }
+    }
+
+    pub fn execute_v2(&mut self, insts: &Vec<Instruction>) {
+        for inst in insts {
+            self.step_v2(inst);
+        }
+    }
+
     pub fn sum_memory(&self) -> u64 {
         self.mem.values().sum()
     }
@@ -80,5 +100,27 @@ impl Computer {
             }
         }
         new_value
+    }
+
+    fn mask_v2(&self, value: &u64) -> Vec<u64> {
+        let mut new_values = vec![*value];
+
+        for (i, c) in self.mask.iter().rev().enumerate() {
+            match c {
+                '1' => {
+                    for val in new_values.iter_mut() {
+                        *val = *val | (1 << i);
+                    }
+                },
+                'X' => {
+                    new_values = new_values.iter().flat_map(|val| {
+                        vec![*val, *val ^ (1 << i)]
+                    }).collect();
+                },
+                _ => {},
+            }
+        }
+
+        new_values
     }
 }
