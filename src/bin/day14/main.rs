@@ -1,17 +1,10 @@
 mod ferry;
 
-use std::env;
-use std::fs;
 use crate::ferry::{Instruction, Computer};
+use advent_of_code_2020::read_input;
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-
-    let input_path = &args[1];
-    println!("Reading input from {}", input_path);
-
-    let contents = fs::read_to_string(input_path)
-        .expect("Something went wrong reading the file");
+    let contents = read_input();
     let insts = Instruction::from_lines(&contents).unwrap();
 
     part1(&insts);
