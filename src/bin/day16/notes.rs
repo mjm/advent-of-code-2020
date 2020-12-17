@@ -5,10 +5,12 @@ use nom::character::complete::{char, digit1, newline};
 use nom::sequence::separated_pair;
 use nom::bytes::complete::{tag, is_not};
 use nom::multi::separated_list1;
+use std::iter::{once, FromIterator};
+use std::collections::HashSet;
 
 pub struct Notes {
     fields: Vec<Field>,
-    your_ticket: Ticket,
+    pub your_ticket: Ticket,
     nearby_tickets: Vec<Ticket>,
 }
 
@@ -38,13 +40,67 @@ impl Notes {
         }).collect()
     }
 
+    pub fn ordered_fields(&self) -> Vec<&Field> {
+        let valid_tickets = self.valid_tickets();
+
+        let mut candidates: Vec<HashSet<&Field>> = self.your_ticket.0.iter()
+            .map(|_| HashSet::from_iter(self.fields.iter()))
+            .collect();
+
+        while !candidates.iter().all(|set| set.len() == 1) {
+            for Ticket(vals) in &valid_tickets[..] {
+                for (i, val) in vals.iter().enumerate() {
+                    let valid_fields: HashSet<&Field> = candidates[i].iter().filter(|field| field.is_valid_value(val)).cloned().collect();
+                    if valid_fields.len() < candidates[i].len() {
+                        candidates[i] = valid_fields;
+                        if candidates[i].len() == 1 {
+                            self.eliminate(&mut candidates, i);
+                        }
+                    }
+                }
+            }
+        }
+
+        candidates.iter().map(|fields| *fields.iter().next().unwrap()).collect()
+    }
+
+    fn eliminate(&self, candidates: &mut Vec<HashSet<&Field>>, i: usize) {
+        let field = *candidates[i].iter().next().unwrap();
+
+        for j in 0..candidates.len() {
+            if i == j {
+                continue
+            }
+
+            if candidates[j].contains(field) {
+                let mut fields = candidates[j].clone();
+                fields.remove(field);
+                candidates[j] = fields;
+                if candidates[j].len() == 1 {
+                    self.eliminate(candidates, j)
+                }
+            }
+        }
+    }
+
+    fn is_valid_ticket(&self, ticket: &Ticket) -> bool {
+        ticket.0.iter().all(|val| self.is_valid_value(val))
+    }
+
     fn is_valid_value(&self, val: &u32) -> bool {
         self.fields.iter().any(|field| field.is_valid_value(val))
     }
+
+    fn valid_tickets(&self) -> Vec<&Ticket> {
+        once(&self.your_ticket).chain(&self.nearby_tickets)
+            .filter(|ticket| self.is_valid_ticket(*ticket))
+            .collect()
+    }
 }
 
+#[derive(Debug, Eq, PartialEq, Hash)]
 pub struct Field {
-    label: String,
+    pub label: String,
     value_ranges: Vec<RangeInclusive<u32>>,
 }
 
@@ -55,6 +111,12 @@ impl Field {
 }
 
 pub struct Ticket(Vec<u32>);
+
+impl Ticket {
+    pub fn get(&self, i: usize) -> u32 {
+        self.0[i]
+    }
+}
 
 fn parse_field(s: &str) -> IResult<&str, Field> {
     map(
