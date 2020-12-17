@@ -47,15 +47,13 @@ impl Notes {
             .map(|_| HashSet::from_iter(self.fields.iter()))
             .collect();
 
-        while !candidates.iter().all(|set| set.len() == 1) {
-            for Ticket(vals) in &valid_tickets[..] {
-                for (i, val) in vals.iter().enumerate() {
-                    let valid_fields: HashSet<&Field> = candidates[i].iter().filter(|field| field.is_valid_value(val)).cloned().collect();
-                    if valid_fields.len() < candidates[i].len() {
-                        candidates[i] = valid_fields;
-                        if candidates[i].len() == 1 {
-                            self.eliminate(&mut candidates, i);
-                        }
+        for Ticket(vals) in &valid_tickets[..] {
+            for (i, val) in vals.iter().enumerate() {
+                let valid_fields: HashSet<&Field> = candidates[i].iter().filter(|field| field.is_valid_value(val)).cloned().collect();
+                if valid_fields.len() < candidates[i].len() {
+                    candidates[i] = valid_fields;
+                    if candidates[i].len() == 1 {
+                        self.eliminate(&mut candidates, i);
                     }
                 }
             }
