@@ -4,6 +4,7 @@ fn main() {
     let input = [1, 20, 11, 6, 12, 0];
 
     part1(&input[..]);
+    part2(&input[..]);
 }
 
 fn part1(input: &[i32]) {
@@ -14,6 +15,16 @@ fn part1(input: &[i32]) {
 
     let result = game.simulate_until(2020);
     println!("The 2020th number spoken is {}", result);
+}
+
+fn part2(input: &[i32]) {
+    let mut game = Game::new();
+    for num in input {
+        game.speak(*num);
+    }
+
+    let result = game.simulate_until(30000000);
+    println!("The 30000000th number spoken is {}", result);
 }
 
 struct Game {
