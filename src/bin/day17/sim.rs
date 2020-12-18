@@ -1,9 +1,16 @@
 use std::collections::HashSet;
 
+pub trait Point where Self: Sized {
+    fn neighbors(&self) -> Vec<Self>;
+    fn points_to_check(&self, other: &Self) -> Vec<Self>;
+    fn partwise_min(points: &HashSet<Self>) -> Self;
+    fn partwise_max(points: &HashSet<Self>) -> Self;
+}
+
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct Point3D(i32, i32, i32);
 
-impl Point3D {
+impl Point for Point3D {
     fn neighbors(&self) -> Vec<Point3D> {
         let &Point3D(x, y, z) = self;
         (-1..=1).flat_map(|dx| {
@@ -11,6 +18,35 @@ impl Point3D {
                 (-1..=1).map(move |dz| Point3D(x + dx, y + dy, z + dz))
             })
         }).filter(|point| point != self).collect()
+    }
+
+    fn points_to_check(&self, other: &Self) -> Vec<Self> {
+        let Point3D(x, y, z) = self;
+        let Point3D(x2, y2, z2) = other;
+
+        ((x-1)..=(x2+1)).flat_map(|x| {
+            ((y-1)..=(y2+1)).flat_map(move |y| {
+                ((z-1)..=(z2+1)).map(move |z| {
+                    Point3D(x, y, z)
+                })
+            })
+        }).collect()
+    }
+
+    fn partwise_min(points: &HashSet<Self>) -> Self {
+        Point3D(
+            points.iter().map(|Point3D(x, _, _)| *x).min().unwrap(),
+            points.iter().map(|Point3D(_, y, _)| *y).min().unwrap(),
+            points.iter().map(|Point3D(_, _, z)| *z).min().unwrap(),
+        )
+    }
+
+    fn partwise_max(points: &HashSet<Self>) -> Self {
+        Point3D(
+            points.iter().map(|Point3D(x, _, _)| *x).max().unwrap(),
+            points.iter().map(|Point3D(_, y, _)| *y).max().unwrap(),
+            points.iter().map(|Point3D(_, _, z)| *z).max().unwrap(),
+        )
     }
 }
 
@@ -32,16 +68,8 @@ impl Simulation {
             })
         }).collect();
 
-        let min = Point3D(
-            points.iter().map(|Point3D(x, _, _)| *x).min().unwrap(),
-            points.iter().map(|Point3D(_, y, _)| *y).min().unwrap(),
-            points.iter().map(|Point3D(_, _, z)| *z).min().unwrap(),
-        );
-        let max = Point3D(
-            points.iter().map(|Point3D(x, _, _)| *x).max().unwrap(),
-            points.iter().map(|Point3D(_, y, _)| *y).max().unwrap(),
-            points.iter().map(|Point3D(_, _, z)| *z).max().unwrap(),
-        );
+        let min = Point3D::partwise_min(&points);
+        let max = Point3D::partwise_max(&points);
 
         Simulation {
             active_points: points,
@@ -56,38 +84,34 @@ impl Simulation {
 
         let mut changes: Vec<(Point3D, bool)> = Vec::new();
 
-        for x in (min_x - 1)..=(max_x + 1) {
-            for y in (min_y - 1)..=(max_y + 1) {
-                for z in (min_z - 1)..=(max_z + 1) {
-                    let point = Point3D(x, y, z);
-                    if self.active_points.contains(&point) {
-                        let active_neighbors = self.num_active_neighbors(&point);
-                        if active_neighbors != 2 && active_neighbors != 3 {
-                            changes.push((point, false));
-                        }
-                    } else {
-                        if self.num_active_neighbors(&point) == 3 {
-                            changes.push((point, true));
+        for point in self.min_corner.points_to_check(&self.max_corner) {
+            if self.active_points.contains(&point) {
+                let active_neighbors = self.num_active_neighbors(&point);
+                if active_neighbors != 2 && active_neighbors != 3 {
+                    changes.push((point, false));
+                }
+            } else {
+                if self.num_active_neighbors(&point) == 3 {
+                    let Point3D(x, y, z) = point;
+                    changes.push((point, true));
 
-                            if x < min_x {
-                                min_x = x;
-                            }
-                            if y < min_y {
-                                min_y = y;
-                            }
-                            if z < min_z {
-                                min_z = z;
-                            }
-                            if x > max_x {
-                                max_x = x;
-                            }
-                            if y > max_y {
-                                max_y = y;
-                            }
-                            if z > max_z {
-                                max_z = z;
-                            }
-                        }
+                    if x < min_x {
+                        min_x = x;
+                    }
+                    if y < min_y {
+                        min_y = y;
+                    }
+                    if z < min_z {
+                        min_z = z;
+                    }
+                    if x > max_x {
+                        max_x = x;
+                    }
+                    if y > max_y {
+                        max_y = y;
+                    }
+                    if z > max_z {
+                        max_z = z;
                     }
                 }
             }
