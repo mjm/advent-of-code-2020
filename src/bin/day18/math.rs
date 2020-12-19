@@ -17,12 +17,19 @@ pub enum Operator {
 pub enum Expr {
     Num(u64),
     Op(Operator, Box<Expr>, Box<Expr>),
+    Paren(Box<Expr>),
 }
 
 impl Expr {
     pub fn parse_lines(s: &str) -> Result<Vec<Expr>, nom::error::Error<&str>> {
         all_consuming(
             separated_list1(newline, parse_expr_chain),
+        )(s).finish().map(|(_, exprs)| exprs)
+    }
+
+    pub fn parse_lines_ordered(s: &str) -> Result<Vec<Expr>, nom::error::Error<&str>> {
+        all_consuming(
+            separated_list1(newline, parse_expr_chain_ordered),
         )(s).finish().map(|(_, exprs)| exprs)
     }
 
@@ -34,7 +41,8 @@ impl Expr {
             }
             Expr::Op(Operator::Mult, lhs, rhs) => {
                 lhs.evaluate() * rhs.evaluate()
-            }
+            },
+            Expr::Paren(expr) => expr.evaluate(),
         }
     }
 }
@@ -44,7 +52,10 @@ fn parse_num(s: &str) -> IResult<&str, Expr> {
 }
 
 fn parse_paren_expr(s: &str) -> IResult<&str, Expr> {
-    preceded(char('('), terminated(parse_expr_chain, char(')')))(s)
+    map(
+        preceded(char('('), terminated(parse_expr_chain, char(')'))),
+        |expr| Expr::Paren(Box::new(expr)),
+    )(s)
 }
 
 fn parse_expr_chain(mut s: &str) -> IResult<&str, Expr> {
@@ -71,6 +82,50 @@ fn parse_expr_chain(mut s: &str) -> IResult<&str, Expr> {
                     Err(e) => return Err(e),
                     Ok((s2, o)) => {
                         res = Expr::Op(op, Box::new(res), Box::new(o));
+                        s = s2;
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn parse_paren_expr_ordered(s: &str) -> IResult<&str, Expr> {
+    map(
+        preceded(char('('), terminated(parse_expr_chain_ordered, char(')'))),
+        |expr| Expr::Paren(Box::new(expr)),
+    )(s)
+}
+
+fn parse_expr_chain_ordered(mut s: &str) -> IResult<&str, Expr> {
+    let mut elem = alt((
+        parse_num,
+        parse_paren_expr_ordered,
+    ));
+
+    let (s1, o) = elem.parse(s)?;
+    let mut res = o;
+    s = s1;
+
+    loop {
+        match parse_operator.parse(s) {
+            Err(Err::Error(_)) => return Ok((s, res)),
+            Err(e) => return Err(e),
+            Ok((s1, op)) => {
+                if s1 == s {
+                    return Err(Err::Error(nom::error::Error::from_error_kind(s1, ErrorKind::SeparatedList)));
+                }
+
+                match elem.parse(s1) {
+                    Err(Err::Error(_)) => return Ok((s, res)),
+                    Err(e) => return Err(e),
+                    Ok((s2, o)) => {
+                        res = match (&op, res) {
+                            (Operator::Add, Expr::Op(op2, lhs, rhs)) => {
+                                Expr::Op(op2, lhs, Box::new(Expr::Op(op, rhs, Box::new(o))))
+                            },
+                            (_, res) => Expr::Op(op, Box::new(res), Box::new(o)),
+                        };
                         s = s2;
                     }
                 }
