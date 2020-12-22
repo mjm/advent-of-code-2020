@@ -1,8 +1,8 @@
 use std::cell::RefCell;
+use std::collections::{HashMap, VecDeque};
 
 use enumflags2::BitFlags;
 use itertools::Itertools;
-use std::collections::HashMap;
 
 use crate::tile::{Edge, Side, Tile, TileView};
 
@@ -39,8 +39,8 @@ impl Image {
             match side {
                 Side::Top => (y.checked_sub(1)).and_then(|y| self.get_tile(x, y)),
                 Side::Left => (x.checked_sub(1)).and_then(|x| self.get_tile(x, y)),
-                Side::Right => self.get_tile(x+1, y),
-                Side::Bottom => self.get_tile(x, y+1),
+                Side::Right => self.get_tile(x + 1, y),
+                Side::Bottom => self.get_tile(x, y + 1),
             }.map(|tile| (side, tile))
         }).collect_vec()
     }
@@ -58,8 +58,8 @@ impl Image {
 }
 
 pub struct ImageBuilder {
-    image: RefCell<Image>,
-    slots: RefCell<Vec<(usize, usize)>>,
+    image: Image,
+    slots: VecDeque<(usize, usize)>,
     tiles: HashMap<u32, Box<Tile>>,
     edges: HashMap<u16, Vec<Edge>>,
 }
@@ -80,15 +80,26 @@ impl ImageBuilder {
         }
 
         ImageBuilder {
-            image: RefCell::new(Image::new()),
-            slots: RefCell::new(vec![(0, 0)]),
+            image: Image::new(),
+            slots: vec![(0, 0)].into(),
             tiles: tiles_by_id,
             edges: edges_by_value,
         }
     }
 
+    pub fn fill_all_slots(&mut self) {
+        println!("All edges:");
+        for (edge_value, edges) in &self.edges {
+            println!("edge {}: {:?}", edge_value, edges);
+        }
+
+        while !self.slots.is_empty() {
+            self.fill_next_slot();
+        }
+    }
+
     pub fn fill_next_slot(&mut self) {
-        let (x, y) = self.slots.borrow_mut().pop().unwrap();
+        let (x, y) = self.slots.pop_front().unwrap();
 
         if (0, 0) == (x, y) {
             self.fill_initial_slot();
@@ -98,8 +109,8 @@ impl ImageBuilder {
     }
 
     fn fill_initial_slot(&mut self) {
-        self.slots.borrow_mut().push((0, 1));
-        self.slots.borrow_mut().push((1, 0));
+        self.slots.push_back((0, 1));
+        self.slots.push_back((1, 0));
 
         let (corner_tile, edges) = self.pop_corner_tile();
 
@@ -124,19 +135,64 @@ impl ImageBuilder {
         };
         println!("Need {} rotations", rotations);
 
-        let mut tile_view = TileView::new(corner_tile);
-        tile_view.rotate(rotations);
+        let tile_id = corner_tile.id;
+        let mut tile = TileView::new(corner_tile);
+        tile.rotate(rotations);
 
-        self.image.borrow_mut().insert(0, 0, tile_view);
+        println!("Placing tile {} at (0, 0)\n  Edges: {:?}", tile_id, tile.get_all_edges());
+        self.image.insert(0, 0, tile);
     }
 
-    fn fill_slot(&self, x: usize, y: usize) {
-        let edges_to_match = self.image.borrow().get_edges(x, y);
+    fn fill_slot(&mut self, x: usize, y: usize) {
+        if self.image.get_tile(x, y).is_some() {
+            return;
+        }
+
+        println!("Filling slot ({}, {})", x, y);
+        let mut edges_to_match = self.image.get_edges(x, y);
+        assert!(edges_to_match.len() >= 1);
         println!("Finding tile to match edges: {:?}", edges_to_match);
+
+        let first_edge = edges_to_match.pop().unwrap();
+        let matching_edges = self.edges.get(&first_edge.value).unwrap().iter()
+            .filter(|edge| edge.tile_id != first_edge.tile_id)
+            .collect_vec();
+        println!("All matching edges: {:?}", matching_edges);
+
+        let matching_edge = self.edges.get(&first_edge.value).unwrap().iter()
+            .filter(|edge| edge.tile_id != first_edge.tile_id)
+            .next()
+            .cloned();
+
+        match matching_edge {
+            Some(edge) => {
+                println!("Found matching edge: {:?}", edge);
+                let mut tile = TileView::new(self.pop_tile(&edge.tile_id));
+
+                let mut cur_side = edge.side;
+                if !edge.flipped {
+                    cur_side = cur_side.flipped();
+                    tile.flip();
+                    println!("Flipping the tile");
+                }
+
+                while cur_side != first_edge.side.opposite() {
+                    cur_side = cur_side.rotated(1);
+                    tile.rotate(1);
+                    println!("Rotating the tile");
+                }
+
+                println!("Placing tile {} at ({}, {})\n  Edges: {:?}", &edge.tile_id, x, y, tile.get_all_edges());
+                self.image.insert(x, y, tile);
+                self.slots.push_back((x + 1, y));
+                self.slots.push_back((x, y + 1));
+            }
+            None => { return; }
+        }
     }
 
     fn pop_corner_tile(&mut self) -> (Tile, Vec<Edge>) {
-        let (tile_id, edges) = self.edges_by_tile_id() .into_iter()
+        let (tile_id, edges) = self.edges_by_tile_id().into_iter()
             .filter(|(_, v)| v.len() == 4)
             .next()
             .unwrap();

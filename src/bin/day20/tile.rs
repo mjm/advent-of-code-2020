@@ -18,7 +18,7 @@ pub enum Side {
 }
 
 impl Side {
-    fn rotated(&self, n: u32) -> Self {
+    pub fn rotated(&self, n: u32) -> Self {
         if n == 0 {
             return *self;
         }
@@ -39,12 +39,21 @@ impl Side {
         self.rotated(4 - n)
     }
 
-    fn flipped(&self) -> Side {
+    pub fn flipped(&self) -> Side {
         match self {
             Self::Top => Self::Right,
             Self::Right => Self::Top,
             Self::Bottom => Self::Left,
             Self::Left => Self::Bottom,
+        }
+    }
+
+    pub fn opposite(&self) -> Side {
+        match self {
+            Self::Top => Self::Bottom,
+            Self::Bottom => Self::Top,
+            Self::Left => Self::Right,
+            Self::Right => Self::Left,
         }
     }
 }
@@ -174,7 +183,15 @@ impl TileView {
         if self.flip {
             real_side = real_side.flipped();
         }
-        self.tile.get_edge(real_side, self.flip)
+
+        let mut edge = self.tile.get_edge(real_side, self.flip);
+        edge.side = side;
+        edge
+    }
+
+    pub fn get_all_edges(&self) -> Vec<Edge> {
+        let all_sides: BitFlags<Side> = BitFlags::all();
+        all_sides.iter().map(|side| self.get_edge(side)).collect_vec()
     }
 }
 
