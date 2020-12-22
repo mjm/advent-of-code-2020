@@ -1,28 +1,63 @@
+use enumflags2::BitFlags;
+use itertools::Itertools;
+use nom::{Finish, IResult};
 use nom::bytes::complete::{tag, take_until};
 use nom::character::complete::digit1;
-use nom::combinator::{map, map_res, all_consuming};
-use nom::{IResult, Finish};
-use nom::sequence::{pair, preceded, terminated};
-use nom::multi::many1;
+use nom::combinator::{all_consuming, map, map_res};
 use nom::lib::std::collections::HashMap;
-use itertools::Itertools;
+use nom::multi::many1;
+use nom::sequence::{pair, preceded, terminated};
 
-#[derive(Copy, Clone, Debug)]
+#[derive(BitFlags, Copy, Clone, Debug, PartialEq)]
+#[repr(u8)]
 pub enum Side {
-    Top,
-    Bottom,
-    Left,
-    Right,
+    Top = 0b0001,
+    Bottom = 0b0010,
+    Left = 0b0100,
+    Right = 0b1000,
 }
 
-#[derive(Debug)]
+impl Side {
+    fn rotated(&self, n: u32) -> Self {
+        if n == 0 {
+            return *self;
+        }
+
+        (match self {
+            Self::Top => Self::Right,
+            Self::Right => Self::Bottom,
+            Self::Bottom => Self::Left,
+            Self::Left => Self::Top,
+        }).rotated(n - 1)
+    }
+
+    fn rotated_inv(&self, n: u32) -> Self {
+        if n == 0 {
+            return *self;
+        }
+
+        self.rotated(4 - n)
+    }
+
+    fn flipped(&self) -> Side {
+        match self {
+            Self::Top => Self::Right,
+            Self::Right => Self::Top,
+            Self::Bottom => Self::Left,
+            Self::Left => Self::Bottom,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Edge {
-    tile_id: u32,
-    value: u16,
-    side: Side,
-    flipped: bool,
+    pub tile_id: u32,
+    pub value: u16,
+    pub side: Side,
+    pub flipped: bool,
 }
 
+#[derive(Debug, Clone)]
 pub struct Tile {
     pub id: u32,
     pub width: usize,
@@ -64,7 +99,7 @@ impl Tile {
             tiles_by_id.insert(tile.id, tile);
             for edge in tile.all_edges() {
                 match edges_by_value.get_mut(&edge.value) {
-                    None => { edges_by_value.insert(edge.value, vec![edge]); },
+                    None => { edges_by_value.insert(edge.value, vec![edge]); }
                     Some(edges) => { edges.push(edge); }
                 }
             }
@@ -84,8 +119,8 @@ impl Tile {
         use Side::*;
         let value = match side {
             Top => Tile::get_edge_value(self.data.iter().take(self.width), flipped, self.width),
-            Bottom => Tile::get_edge_value(self.data.iter().skip((self.height - 1) * self.width), flipped, self.width),
-            Left => Tile::get_edge_value(self.data.iter().step_by(self.width), flipped, self.height),
+            Bottom => Tile::get_edge_value(self.data.iter().skip((self.height - 1) * self.width).rev(), flipped, self.width),
+            Left => Tile::get_edge_value(self.data.iter().step_by(self.width).rev(), flipped, self.height),
             Right => Tile::get_edge_value(self.data.iter().skip(self.width - 1).step_by(self.width), flipped, self.height),
         };
 
@@ -108,6 +143,38 @@ impl Tile {
         }
 
         value
+    }
+}
+
+pub struct TileView {
+    tile: Tile,
+    flip: bool,
+    rotations: u32,
+}
+
+impl TileView {
+    pub fn new(tile: Tile) -> Self {
+        TileView {
+            tile,
+            flip: false,
+            rotations: 0,
+        }
+    }
+
+    pub fn rotate(&mut self, n: u32) {
+        self.rotations += n;
+    }
+
+    pub fn flip(&mut self) {
+        self.flip = !self.flip;
+    }
+
+    pub fn get_edge(&self, side: Side) -> Edge {
+        let mut real_side = side.rotated_inv(self.rotations);
+        if self.flip {
+            real_side = real_side.flipped();
+        }
+        self.tile.get_edge(real_side, self.flip)
     }
 }
 
