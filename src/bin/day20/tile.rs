@@ -169,10 +169,6 @@ impl TileView {
         }
     }
 
-    pub fn id(&self) -> u32 {
-        self.tile.id
-    }
-
     pub fn size(&self) -> usize {
         assert_eq!(self.tile.width, self.tile.height);
         self.tile.width
@@ -195,11 +191,6 @@ impl TileView {
         let mut edge = self.tile.get_edge(real_side, self.flip);
         edge.side = side;
         edge
-    }
-
-    pub fn get_all_edges(&self) -> Vec<Edge> {
-        let all_sides: BitFlags<Side> = BitFlags::all();
-        all_sides.iter().map(|side| self.get_edge(side)).collect_vec()
     }
 
     pub fn is_filled_at(&self, x: usize, y: usize) -> bool {

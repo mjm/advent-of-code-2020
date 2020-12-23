@@ -1,10 +1,32 @@
-use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 
 use enumflags2::BitFlags;
 use itertools::Itertools;
 
 use crate::tile::{Edge, Side, Tile, TileView};
+
+//                   #
+// #    ##    ##    ###
+//  #  #  #  #  #  #
+const SEA_MONSTER_POINTS: [(u32, u32); 15] = [
+    (0, 1),
+    (1, 2),
+    (4, 2),
+    (5, 1),
+    (6, 1),
+    (7, 2),
+    (10, 2),
+    (11, 1),
+    (12, 1),
+    (13, 2),
+    (16, 2),
+    (17, 1),
+    (18, 1),
+    (18, 0),
+    (19, 1),
+];
+const SEA_MONSTER_WIDTH: u32 = 20;
+const SEA_MONSTER_HEIGHT: u32 = 3;
 
 pub struct Image {
     tiles: HashMap<(usize, usize), TileView>,
@@ -65,8 +87,6 @@ impl Image {
             let x0 = x * tile_size;
             let y0 = y * tile_size;
 
-            println!("Tile {} starting at ({}, {})", tile.id(), x0, y0);
-
             for dx in 1..=(tile_size) {
                 for dy in 1..=(tile_size) {
                     let color = if tile.is_filled_at(dx, dy) { bmp::consts::BLACK } else { bmp::consts::WHITE };
@@ -75,9 +95,63 @@ impl Image {
             }
         }
 
+        // now mark the sea monsters. try different rotations/flips of the sea monster pattern
+        // bail out when we have an iteration that finds the monsters
+        let mut sea_monster_points = SEA_MONSTER_POINTS.clone();
+        let mut sea_monster_width = SEA_MONSTER_WIDTH;
+        let mut sea_monster_height = SEA_MONSTER_HEIGHT;
+        for i in 0..8 {
+            let mut found_monster = false;
+            for x0 in 0..(img.get_width() - sea_monster_width) {
+                'next_origin: for y0 in 0..(img.get_height() - sea_monster_height) {
+                    for (dx, dy) in &sea_monster_points[..] {
+                        if img.get_pixel(x0 + dx, y0 + dy) == bmp::consts::WHITE {
+                            continue 'next_origin;
+                        }
+                    }
+
+                    // if we got here, then we found a sea monster, so mark it in green
+                    for (dx, dy) in &sea_monster_points[..] {
+                        img.set_pixel(x0 + dx, y0 + dy, bmp::consts::GREEN);
+                    }
+                    found_monster = true;
+                }
+            }
+
+            if found_monster {
+                return img;
+            }
+
+            rotate_points(&mut sea_monster_points, sea_monster_height);
+            if i == 3 {
+                flip_points(&mut sea_monster_points, sea_monster_width, sea_monster_height);
+            } else {
+                let new_width = sea_monster_height;
+                sea_monster_height = sea_monster_width;
+                sea_monster_width = new_width;
+            }
+        }
+
         img
     }
 }
+
+fn rotate_points(points: &mut [(u32, u32)], height: u32) {
+    for (x, y) in points.iter_mut() {
+        let new_x = height - *y - 1;
+        *y = *x;
+        *x = new_x;
+    }
+}
+
+fn flip_points(points: &mut [(u32, u32)], width: u32, height: u32) {
+    for (x, y) in points.iter_mut() {
+        let new_x = width - *y - 1;
+        *y = height - *x - 1;
+        *x = new_x;
+    }
+}
+
 
 pub struct ImageBuilder {
     image: Image,
@@ -135,9 +209,6 @@ impl ImageBuilder {
 
         let (corner_tile, edges) = self.pop_corner_tile();
 
-        println!("Found corner tile: {:?}", corner_tile);
-        println!("Corner tile has edges: {:?}", edges);
-
         let sides = edges.iter()
             .map(|e| e.side)
             .fold(BitFlags::empty(), |sides, s| sides | s);
@@ -154,13 +225,10 @@ impl ImageBuilder {
         } else {
             panic!("Unexpected sides for border edges of corner tile: {:?}", sides)
         };
-        println!("Need {} rotations", rotations);
 
-        let tile_id = corner_tile.id;
         let mut tile = TileView::new(corner_tile);
         tile.rotate(rotations);
 
-        println!("Placing tile {} at (0, 0)\n  Edges: {:?}", tile_id, tile.get_all_edges());
         self.image.insert(0, 0, tile);
     }
 
@@ -169,17 +237,10 @@ impl ImageBuilder {
             return;
         }
 
-        println!("Filling slot ({}, {})", x, y);
         let mut edges_to_match = self.image.get_edges(x, y);
         assert!(edges_to_match.len() >= 1);
-        println!("Finding tile to match edges: {:?}", edges_to_match);
 
         let first_edge = edges_to_match.pop().unwrap();
-        let matching_edges = self.edges.get(&first_edge.value).unwrap().iter()
-            .filter(|edge| edge.tile_id != first_edge.tile_id)
-            .collect_vec();
-        println!("All matching edges: {:?}", matching_edges);
-
         let matching_edge = self.edges.get(&first_edge.value).unwrap().iter()
             .filter(|edge| edge.tile_id != first_edge.tile_id)
             .next()
@@ -187,23 +248,19 @@ impl ImageBuilder {
 
         match matching_edge {
             Some(edge) => {
-                println!("Found matching edge: {:?}", edge);
                 let mut tile = TileView::new(self.pop_tile(&edge.tile_id));
 
                 let mut cur_side = edge.side;
                 if !edge.flipped {
                     cur_side = cur_side.flipped();
                     tile.flip();
-                    println!("Flipping the tile");
                 }
 
                 while cur_side != first_edge.side.opposite() {
                     cur_side = cur_side.rotated(1);
                     tile.rotate(1);
-                    println!("Rotating the tile");
                 }
 
-                println!("Placing tile {} at ({}, {})\n  Edges: {:?}", &edge.tile_id, x, y, tile.get_all_edges());
                 self.image.insert(x, y, tile);
                 self.slots.push_back((x + 1, y));
                 self.slots.push_back((x, y + 1));
