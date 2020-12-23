@@ -68,14 +68,9 @@ impl Image {
     }
 
     pub fn get_edges(&self, x: usize, y: usize) -> Vec<Edge> {
-        self.get_neighbors(x, y).into_iter().map(|(side, tile)| {
-            match side {
-                Side::Top => tile.get_edge(Side::Bottom),
-                Side::Bottom => tile.get_edge(Side::Top),
-                Side::Left => tile.get_edge(Side::Right),
-                Side::Right => tile.get_edge(Side::Left),
-            }
-        }).collect_vec()
+        self.get_neighbors(x, y).into_iter()
+            .map(|(side, tile)| tile.get_edge(side.opposite()))
+            .collect_vec()
     }
 
     pub fn render(&self) -> bmp::Image {
@@ -204,9 +199,6 @@ impl ImageBuilder {
     }
 
     fn fill_initial_slot(&mut self) {
-        self.slots.push_back((0, 1));
-        self.slots.push_back((1, 0));
-
         let (corner_tile, edges) = self.pop_corner_tile();
 
         let sides = edges.iter()
@@ -230,6 +222,8 @@ impl ImageBuilder {
         tile.rotate(rotations);
 
         self.image.insert(0, 0, tile);
+        self.slots.push_back((0, 1));
+        self.slots.push_back((1, 0));
     }
 
     fn fill_slot(&mut self, x: usize, y: usize) {
