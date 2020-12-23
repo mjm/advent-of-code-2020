@@ -23,4 +23,7 @@ fn part1(tiles: &Vec<Tile>) {
 fn part2(tiles: &Vec<Tile>) {
     let mut image_builder = ImageBuilder::new(&tiles[..]);
     image_builder.fill_all_slots();
+    let image = image_builder.build();
+    let bmp_image = image.render();
+    bmp_image.save("day20.bmp").unwrap();
 }

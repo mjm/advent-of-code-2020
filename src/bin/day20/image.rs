@@ -55,6 +55,28 @@ impl Image {
             }
         }).collect_vec()
     }
+
+    pub fn render(&self) -> bmp::Image {
+        let tile_size = self.tiles.values().next().unwrap().size() - 2;
+        let img_size = (tile_size * self.size) as u32;
+        let mut img = bmp::Image::new(img_size, img_size);
+
+        for ((x, y), tile) in &self.tiles {
+            let x0 = x * tile_size;
+            let y0 = y * tile_size;
+
+            println!("Tile {} starting at ({}, {})", tile.id(), x0, y0);
+
+            for dx in 1..=(tile_size) {
+                for dy in 1..=(tile_size) {
+                    let color = if tile.is_filled_at(dx, dy) { bmp::consts::BLACK } else { bmp::consts::WHITE };
+                    img.set_pixel((x0 + dx - 1) as u32, (y0 + dy - 1) as u32, color);
+                }
+            }
+        }
+
+        img
+    }
 }
 
 pub struct ImageBuilder {
@@ -88,17 +110,16 @@ impl ImageBuilder {
     }
 
     pub fn fill_all_slots(&mut self) {
-        println!("All edges:");
-        for (edge_value, edges) in &self.edges {
-            println!("edge {}: {:?}", edge_value, edges);
-        }
-
         while !self.slots.is_empty() {
             self.fill_next_slot();
         }
     }
 
-    pub fn fill_next_slot(&mut self) {
+    pub fn build(self) -> Image {
+        self.image
+    }
+
+    fn fill_next_slot(&mut self) {
         let (x, y) = self.slots.pop_front().unwrap();
 
         if (0, 0) == (x, y) {

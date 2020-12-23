@@ -93,11 +93,10 @@ impl Tile {
     }
 
     pub fn all_edges(&self) -> Vec<Edge> {
-        use Side::*;
-
-        [Top, Bottom, Left, Right].iter().flat_map(|side| {
-            vec![self.get_edge(*side, false), self.get_edge(*side, true)]
-        }).collect()
+        let all_sides: BitFlags<Side> = BitFlags::all();
+        all_sides.iter().flat_map(|side| {
+            vec![self.get_edge(side, false), self.get_edge(side, true)]
+        }).collect_vec()
     }
 
     pub fn find_corners(tiles: &[Tile]) -> Vec<&Tile> {
@@ -170,6 +169,15 @@ impl TileView {
         }
     }
 
+    pub fn id(&self) -> u32 {
+        self.tile.id
+    }
+
+    pub fn size(&self) -> usize {
+        assert_eq!(self.tile.width, self.tile.height);
+        self.tile.width
+    }
+
     pub fn rotate(&mut self, n: u32) {
         self.rotations += n;
     }
@@ -192,6 +200,29 @@ impl TileView {
     pub fn get_all_edges(&self) -> Vec<Edge> {
         let all_sides: BitFlags<Side> = BitFlags::all();
         all_sides.iter().map(|side| self.get_edge(side)).collect_vec()
+    }
+
+    pub fn is_filled_at(&self, x: usize, y: usize) -> bool {
+        let idx = self.resolve_point(x, y);
+        self.tile.data[idx] == '#'
+    }
+
+    fn resolve_point(&self, x: usize, y: usize) -> usize {
+        let (mut x1, mut y1) = match self.rotations {
+            0 => (x, y),
+            1 => (y, self.size() - x - 1),
+            2 => (self.size() - x - 1, self.size() - y - 1),
+            3 => (self.size() - y - 1, x),
+            _ => panic!("Unexpected number of rotations: {}", self.rotations),
+        };
+
+        if self.flip {
+            let x2 = x1;
+            x1 = self.size() - y1 - 1;
+            y1 = self.size() - x2 - 1;
+        }
+
+        (y1 * self.size()) + x1
     }
 }
 
