@@ -6,6 +6,7 @@ use nom::bytes::complete::tag;
 use nom::character::complete::{char, newline};
 use nom::combinator::{all_consuming, value};
 use nom::multi::{many1, separated_list1};
+use itertools::Itertools;
 
 pub struct Map {
     black_tiles: HashSet<(i32, i32, i32)>,
@@ -50,9 +51,48 @@ impl Map {
     pub fn count_black_tiles(&self) -> usize {
         self.black_tiles.len()
     }
+
+    pub fn flip_by_rules(&mut self) {
+        let mut tiles_to_remove = HashSet::new();
+        let mut tiles_to_add = HashSet::new();
+
+        for point in &self.black_tiles {
+            let black_neighbors = point_neighbors(point).into_iter()
+                .filter(|p| self.black_tiles.contains(p))
+                .count();
+            if black_neighbors == 0 || black_neighbors > 2 {
+                tiles_to_remove.insert(point.clone());
+            }
+        }
+
+        for point in self.black_tiles.iter().flat_map(|p| point_neighbors(p)) {
+            if self.black_tiles.contains(&point) {
+                continue;
+            }
+
+            let black_neighbors = point_neighbors(&point).into_iter()
+                .filter(|p| self.black_tiles.contains(p))
+                .count();
+            if black_neighbors == 2 {
+                tiles_to_add.insert(point);
+            }
+        }
+
+        for p in tiles_to_remove {
+            self.black_tiles.remove(&p);
+        }
+        for p in tiles_to_add {
+            self.black_tiles.insert(p);
+        }
+    }
 }
 
 impl Direction {
+    fn all() -> [Self; 6] {
+        use Direction::*;
+        [East, Southeast, Southwest, West, Northwest, Northeast]
+    }
+
     fn move_point(&self, x: &mut i32, y: &mut i32, z: &mut i32) {
         match self {
             Self::East => {
@@ -81,6 +121,14 @@ impl Direction {
             }
         }
     }
+}
+
+fn point_neighbors(point: &(i32, i32, i32)) -> Vec<(i32, i32, i32)> {
+    Direction::all().iter().map(|dir| {
+        let (mut x, mut y, mut z) = *point;
+        dir.move_point(&mut x, &mut y, &mut z);
+        (x, y, z)
+    }).collect_vec()
 }
 
 pub fn parse_move_lists(s: &str) -> Result<Vec<Vec<Direction>>, nom::error::Error<&str>> {
